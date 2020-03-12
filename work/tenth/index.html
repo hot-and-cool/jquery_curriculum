@@ -21,53 +21,110 @@
           </div>
           <button id="js-search-button" class="search__btn">検索する</button>
         </div>
+        <!-- ここに検索結果がないときのmessageを入れる -->
         <ul class="lists"></ul>
       </div>
     </div>
     <script src="../../common/js/jquery.js"></script>
     <script>
-      // 楽天ブックスの総合検索APIを使って製作してください。
-      // answerの挙動を良く見てね！
-      //
-      // 下記URLにAPIの仕様が載ってるいので、ブラウザで開いて参考にしてください。
-      // https://webservice.rakuten.co.jp/api/bookstotalsearch/
-      //
-      //
-      // [使うメソッド]
-      // $.each(配列, function functionName() {}) 配列に対しての繰り返し処理
-      // $.ajax({}) 外部ファイルやURLに対してデータをリクエストすることができます。
-      // 以下は今回使う$.ajaxの基本的な形です。
-      //
-      // $.ajax({
-      //   url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
-      //   type: 'GET',
-      //   datatype: 'json',
-      //   data: {
-      //     // 「区分:サービス固有パラメーター」を確認して、必要な情報をdata内に入れましょう。
-      //     applicationId: '1019399324990976605', // (今回はこのIDを使用してください) ※IDは他サイト等には絶対に転載しないでください
-      //     booksGenreId: '001'
-      //   },
-      // }).done(function(data) {
-      //   // この中にデータ取得後の動きを記述していきます。
-      //   console.log(data);
-      // });
-      //
-      //
-      // $.ajaxによってデータが取得できたら、必要なデータ(作品名とか作者名とか)を取得します。
-      // 取得できたらHTMLに<ul class='lists'></ul>を用意しているので、その中に下のテンプレに沿ってデータを入れ込みましょう。
-      // <li class='lists__item'>
-      //  <div class='lists__item__inner'>
-      //    <a href='' class='lists__item__link' target='_blank'>
-      //      <img src='' class='lists__item__img' alt=''>
-      //      <p class='lists__item__detail'>作品名：</p>
-      //      <p class='lists__item__detail'>作者　：</p>
-      //      <p class='lists__item__detail'>出版社：</p>
-      //    </a>
-      //  </div>
-      // </li>
-      //
-      //
-      //
+    $(function() {
+      //関数化
+      function addBooks(data) {
+        var books = data.Items; 
+        var html = ""; //空のテンプレートを用意
+        $.each(books, function(index,book) {
+          html +=` <li class='lists__item'>
+                    <div class='lists__item__inner'>
+                      <a href='${book.Item.itemUrl}' class='lists__item__link' target='_blank'>
+                        <img src='${book.Item.largeImageUrl}' class='lists__item__img' alt=''>
+                        <p class='lists__item__detail'>作品名： ${book.Item.title}</p>
+                        <p class='lists__item__detail'>作者　： ${book.Item.author}</p>
+                        <p class='lists__item__detail'>出版社： ${book.Item.publisherName}</p>
+                      </a>
+                    </div>
+                  </li>`;
+          //空のテンプレートにリストを繰り返し追加。（１回目<li A> ２回目<li A><li B> ・・・・20回ループ）
+        });
+        $('.lists').prepend(html); //できたテンプレート（<li>*20）を挿入
+      }
+
+      function emptyMessage() {
+        $('.message').empty();
+      } //検索０メッセージを空にする
+
+      function addMessage() {
+        var noneResult = `<div class='message'>検索結果が見つかりませんでした。<br>別のキーワードで検索して下さい。</div>`;
+        $('.search').after(noneResult);
+      } //検索結果のメッセージを挿入
+
+      function emptyBookLists() {
+        $('.lists').empty(); //検索ボタンを押したら.lists内を空にする
+      }
+
+      function changeWord (){
+        $('.search__text__input').change(function(){
+          pageNum = 0;
+          // wordが変わったらpageをリセット
+        });
+        emptyBookLists();
+      }
+
+      function addError(data) {
+        var errors = data.responseJSON;
+        console.log(data)
+        var buildErrorMessage = `<div class='message'>エラー名:${errors.error}<br>エラー内容:${errors.error_description}</div>`;
+        $('.search').after(buildErrorMessage);
+      } //エラー文出す
+
+      var pageNum = 0; //クリックするたびにpage数を増やすためclickイベントの外に置く
+
+      $('#js-search-button').click(function() {
+        var word = $('.search__text__input').val();
+        pageNum++; //クリックするたびにページを増やす。今のままだと全部(wordを変えたときに値をリセットしたい)
+        $.ajax({
+          url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
+          type: 'GET',
+          datatype: 'json', //オブジェクトデータ形式。キーとバリューを持ったハッシュでデータが渡される
+          data: {
+            keyword: word,
+            hits: 20,
+            page: pageNum,
+            applicationId: '1019399324990976605',
+            booksGenreId: '001'
+          },
+        }).done(function(data) {
+          console.log(data);
+          console.log(pageNum);
+          var count = data.count;
+          if (count > 0) {
+              emptyMessage(); //０件メッセージ消す
+              changeWord(); //検索wordが変更したらページをリセットさせ本を消す
+              addBooks(data); //本を表示
+          } else { //表示件数が０のとき
+            emptyMessage();
+            addMessage();
+            // changeWord();
+          }
+        }).fail(function(data) {
+          emptyMessage();
+          if (navigator.onLine === false){
+            $('.search').after("<p class='message'>ネットワークに接続されておりません</p>");
+            return;
+          }
+          addError(data);
+          changeWord(); //これがないとオンに復帰したときクリックした回数＝ページ数が残ってしまう
+        });
+      });
+      // addEventListener=jqeryのonメソッド。イベントを指定できる。
+      // オンラインになったら呼び出す
+      window.addEventListener("online", function() {
+        alert("ネットワークに接続しています");
+      }, false);
+      // オフラインになったら呼び出す
+      window.addEventListener("offline", function() {
+        alert("ネットワーク接続が途切れました");
+      }, false);
+    });
     </script>
   </body>
 </html>

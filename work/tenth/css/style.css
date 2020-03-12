@@ -56,11 +56,11 @@
 .lists {
   overflow: hidden;
   margin-left: 20px;
-  
+  font-size: 0;
 }
 .lists__item {
   -webkit-box-sizing: border-box;
-      box-sizing: border-box;
+  box-sizing: border-box;
   display: inline-block;
   width: 25%;
   padding: 0 20px 20px 0;
@@ -81,7 +81,7 @@
   width: 100%;
   max-width: 150px;
   -webkit-box-shadow: 0 1px 5px #ccc;
-      box-shadow: 0 1px 5px #ccc;
+  box-shadow: 0 1px 5px #ccc;
 }
 .lists__item__detail {
   margin-bottom: 10px;
